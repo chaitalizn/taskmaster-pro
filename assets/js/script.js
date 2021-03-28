@@ -3,16 +3,16 @@ var tasks = {};
 var createTask = function(taskText, taskDate, taskList) {
   // create elements that make up a task item
   var taskLi = $("<li>").addClass("list-group-item");
-  var taskSpan = $("<span>")
-    .addClass("badge badge-primary badge-pill")
-    .text(taskDate);
-  var taskP = $("<p>")
-    .addClass("m-1")
-    .text(taskText);
+
+  var taskSpan = $("<span>").addClass("badge badge-primary badge-pill").text(taskDate);
+
+  var taskP = $("<p>").addClass("m-1").text(taskText);
 
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
+  // check due date
+  auditTask(taskLi);
 
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
@@ -46,6 +46,75 @@ var saveTasks = function() {
   localStorage.setItem("tasks", JSON.stringify(tasks));
 };
 
+var auditTask = function(taskEl) {
+  // get date from task element
+  var date = $(taskEl).find("span").text().trim();
+
+  // convert to moment object at 5:00pm
+  var time = moment(date, "L").set("hour", 17);
+
+  // remove any old classes from element
+  $(taskEl).removeClass("list-group-item-warning list-group-item-danger");
+
+  // apply new class if task is near/over due date
+  if (moment().isAfter(time)) {
+    $(taskEl).addClass("list-group-item-danger");
+  }
+};
+
+//sort list 
+// enable draggable/sortable feature on list-group elements
+$(".card .list-group").sortable({
+  // enable dragging across lists
+  connectWith: $(".card .list-group"),
+  scroll: false,
+  tolerance: "pointer",
+  helper: "clone",
+  activate: function(event, ui) {
+    console.log(ui);
+  },
+  deactivate: function(event, ui) {
+    console.log(ui);
+  },
+  over: function(event) {
+    console.log(event);
+  },
+  out: function(event) {
+    console.log(event);
+  },
+  update: function() {
+    var tempArr = [];
+
+    // loop over current set of children in sortable list
+    $(this)
+      .children()
+      .each(function() {
+        // save values in temp array
+        tempArr.push({
+          text: $(this)
+            .find("p")
+            .text()
+            .trim(),
+          date: $(this)
+            .find("span")
+            .text()
+            .trim()
+        });
+      });
+
+    // trim down list's ID to match object property
+    var arrName = $(this)
+      .attr("id")
+      .replace("list-", "");
+
+    // update array on tasks object and save
+    tasks[arrName] = tempArr;
+    saveTasks();
+  },
+  stop: function(event) {
+    $(this).removeClass("dropover");
+  }
+});
 
 
 // modal was triggered
@@ -149,12 +218,20 @@ $(".list-group").on("click", "span", function() {
     //swap out elements
     $(this).replaceWith(dateInput);
 
+    // enable jquery ui datepicker
+    dateInput.datepicker({
+    minDate: 1,
+    onClose: function() {
+      // when calendar is closed, force a "change" event on the `dateInput`
+      $(this).trigger("change");
+    }
+  });
     //automatically focus on new element 
     dateInput.trigger("focus");
 });
 
 // value of due date was changed
-$(".list-group").on("blur", "input[type='text']", function() {
+$(".list-group").on("change", "input[type='text']", function() {
   //get current text
   var date = $(this)
   .val()
@@ -196,59 +273,7 @@ $("#remove-tasks").on("click", function() {
 // load tasks for the first time
 loadTasks();
 
-//sort list 
-// enable draggable/sortable feature on list-group elements
-$(".card .list-group").sortable({
-  // enable dragging across lists
-  connectWith: $(".card .list-group"),
-  scroll: false,
-  tolerance: "pointer",
-  helper: "clone",
-  activate: function(event, ui) {
-    console.log(ui);
-  },
-  deactivate: function(event, ui) {
-    console.log(ui);
-  },
-  over: function(event) {
-    console.log(event);
-  },
-  out: function(event) {
-    console.log(event);
-  },
-  update: function() {
-    var tempArr = [];
 
-    // loop over current set of children in sortable list
-    $(this)
-      .children()
-      .each(function() {
-        // save values in temp array
-        tempArr.push({
-          text: $(this)
-            .find("p")
-            .text()
-            .trim(),
-          date: $(this)
-            .find("span")
-            .text()
-            .trim()
-        });
-      });
-
-    // trim down list's ID to match object property
-    var arrName = $(this)
-      .attr("id")
-      .replace("list-", "");
-
-    // update array on tasks object and save
-    tasks[arrName] = tempArr;
-    saveTasks();
-  },
-  stop: function(event) {
-    $(this).removeClass("dropover");
-  }
-});
 
 $("#trash").droppable({
   accept: ".card .list-group-item",
@@ -264,3 +289,10 @@ $("#trash").droppable({
     console.log("out");
   }
 });
+
+$("#modalDueDate").datepicker(
+  {minDate: 1}
+);
+
+//var twoDaysFromNow = moment().add(2, "days");
+
